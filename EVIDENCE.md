@@ -745,3 +745,11 @@
 - **结果**：真实 gpt-4.1-mini 简报 3 次均通过（§70 的简报 1/3）；每次 1 次工具调用、10 次模型调用（§70 为 12–17），约 80 秒（82–140）；简报内 5 位以上的数字（19–20 个/份）全部可在数据块中找到。
 - **诚实边界**：(1) 只服务该库表结构，其他库返回明确错误；(2) 保证数字来源，不保证转述；(3) n=3、单一模型、简报评分规则在 §70 之后修订过；(4) 数据块同比按人民币算，与第一轮样例简报（美元口径）不同；(5) 未做"模型改写数字"的对抗测试，只做了数字溯源核对。
 - **简历口径**：可写"周报类请求改为确定性数据块 + 模型只负责措辞，简报 3/3 通过且数字全部可溯源（作者编写台账，3 次）"；不写通用准确率提升。
+
+## 72. Mac 上重跑与一个真实缺陷：相对路径 `ODR_SQL_DB_PATH` 使 `sql_executor` 抛 ValueError（2026-10-21）
+- **Mac 重跑**（`metals_real_run/final_docker`，`run_on_mac.sh`，Docker 可用）：Q5B 3/3、Q7 3/3、H3 1/3、Q1 1/3；与 §70 的无 Docker 环境合计 6 轮为 3/6、5/6、3/6、3/6。12 次运行 `python_executor` 调用 0 次，因此**未检验**"Docker 可用能否消除心算错误"，§70 边界(4)中"Docker 不可用，模型被迫手算"应读作"未证实"。H3 的失败是缺合计，不是算错；Q5B 同配置 0/3→3/3 说明 3 次的结果波动很大。
+- **缺陷（来自 Studio 终端日志）**：`ODR_SQL_DB_PATH=my_extensions/metals_demo.db`（相对路径）启动时，`sql_executor` 连续 10 次 `failure_kind=infrastructure_error`、耗时约 0.002 秒；改用绝对路径后恢复（20 次 `none`）。
+- **根因**：`Path.as_uri()` 对相对路径抛 `ValueError`；它不是 `sqlite3.Error`，没有被工具捕获，异常逃出后被 `execute_tool_safely` 记为 `infrastructure_error`（计入熔断）。同时设置 `ODR_SQL_SCHEMA_HINT=1` 时，`read_live_schema` 在**导入阶段**就会抛出同一异常，模块无法加载。
+- **修复**：`sql_executor.py` 导入时把 `DB_PATH` 转为绝对路径，`_build_readonly_uri` 与 `read_live_schema` 内部也先取绝对路径。
+- **测试**：`test_sql_relative_path.py`（2 项：相对路径可查询；相对路径 + SCHEMA_HINT 可导入）。已做反向验证：临时还原修复后测试失败（`ValueError`），恢复后通过；`test_sql_executor`、`test_sql_allow_with`、`test_sql_reliability`、`test_sql_metric_dict`、`test_ledger_briefing` 复跑通过。
+- **边界**：绝对化按**进程工作目录**；若服务从别的目录启动，仍需给绝对路径。早期 10 次失败发生在我无法直接观察的环境，上述根因由复现推得（相对路径下抛出相同异常、耗时量级一致），不是对原始异常栈的直接读取。

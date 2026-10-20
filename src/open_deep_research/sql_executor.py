@@ -72,7 +72,9 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 # ODR_SQL_DB_PATH 只用于评测切换到 eval_large.db；不设置时行为与之前完全一致（demo.db）。
-DB_PATH = Path(os.environ.get("ODR_SQL_DB_PATH") or (Path(__file__).resolve().parents[2] / "my_extensions" / "demo.db"))
+# 相对路径在导入时就转成绝对路径（按当时的工作目录）：Path.as_uri() 对相对路径会抛 ValueError，
+# 而 ValueError 不是 sqlite3.Error，会从工具里逃出去被记成 infrastructure_error（真实运行日志里见过 10 次，EVIDENCE §72）。
+DB_PATH = Path(os.path.abspath(os.path.expanduser(os.environ.get("ODR_SQL_DB_PATH") or (Path(__file__).resolve().parents[2] / "my_extensions" / "demo.db"))))
 
 QUERY_TIMEOUT_SECONDS = 5  # best-effort，不是硬实时保证，见模块docstring
 MAX_ROWS = 500
@@ -94,7 +96,7 @@ def read_live_schema(db_path=None) -> str:
     """从数据库本身实时读出建表语句（只读连接）；读不到时返回空串，调用方回退到“让模型自己查 sqlite_master”。"""
     path = Path(db_path) if db_path else DB_PATH
     try:
-        conn = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
+        conn = sqlite3.connect(f"{Path(os.path.abspath(path)).as_uri()}?mode=ro", uri=True)
         try:
             rows = conn.execute(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -239,7 +241,7 @@ def _classify_query(query: str) -> str:
 
 
 def _build_readonly_uri(path: Path) -> str:
-    return f"{path.as_uri()}?mode=ro"
+    return f"{Path(os.path.abspath(path)).as_uri()}?mode=ro"
 
 
 def _deny_attach_and_detach(action, arg1, arg2, dbname, source):
