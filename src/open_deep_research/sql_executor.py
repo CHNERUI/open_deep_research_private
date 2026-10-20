@@ -180,7 +180,9 @@ def build_sql_executor_description(schema_hint: bool = False, db_path=None) -> s
             "(e.g. English metal names such as 'aluminium', not Chinese). Before filtering on a text column, run "
             "SELECT DISTINCT <column> to see the actual values; never conclude 'no data' from an empty result "
             "without checking this. Do totals and group-by aggregation inside SQL (SUM, COUNT, GROUP BY) "
-            "instead of listing raw rows and adding them up elsewhere."
+            "instead of listing raw rows and adding them up elsewhere. When asked which customers or items match, return one row per customer with its name, SUM and COUNT (GROUP BY the name); "
+            "run a second query for invoice-level detail only if needed. Return readable names (join lookup tables) "
+            "rather than bare ids, and include any source or definition columns of the table you read."
             if os.environ.get("ODR_SQL_VALUE_HINT") == "1" else ""
         )
         + (

@@ -97,6 +97,7 @@ Think like a research manager with limited time and resources. Follow these step
 
 1. **Read the question carefully** - What specific information does the user need?
 2. **Check if this requires internal company data** - If the question involves the company's own database, internal records, or proprietary figures (not publicly available online), the sub-agent will need sql_executor (to query the database) and possibly python_executor (to compute statistics like averages or standard deviations). When delegating such a subtask via ConductResearch, explicitly state in the research_topic that internal database access via sql_executor is required, and mention python_executor if calculations beyond simple SQL aggregation are needed.
+   If the internal database returns no data for what was asked (for example a month or product it does not cover), do not delegate web searches to substitute for it unless the user explicitly asked for public or market information. Report that the internal database has no such data. If you do add public web information, instruct the sub-agent to keep it clearly separate from internal figures and to state that the definitions may differ.
 3. **Decide how to delegate the research** - Carefully consider the question and decide how to delegate the research. Are there multiple independent directions that can be explored simultaneously?
 4. **After each call to ConductResearch, pause and assess** - Do I have enough to answer? What's still missing?
 </Instructions>
@@ -315,6 +316,7 @@ When the report uses figures from an internal database or ledger, state for each
 If the findings do not state a definition, write "not specified in the data" rather than guessing, and do not give business advice that the figures cannot support.
 Every figure the user asked for must appear in the report as an actual number. Never replace a number with a placeholder such as "see the data" or "details in the database"; if a number is not in the findings, say it is missing.
 Do not claim that definitions were "checked" or "free of ambiguity" unless the findings show that check. If the findings do not say where a price comes from, do not call it an internal price or an official benchmark; say its source is not stated in the findings.
+When the user asks which customers or items match and the findings list several rows per customer, add a per-customer total and row count at the top, summed only from the listed figures, and show the sum as a short addition so it can be checked.
 If the findings contain no figures at all (for example no tool results were returned), do not write any customer names, amounts, prices or dates. State plainly that the research returned no data and what is therefore missing.
 </Metric Definition Rules>
 
