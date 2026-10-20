@@ -607,6 +607,10 @@ async def get_all_tools(config: RunnableConfig):
     # 详见 IMPROVEMENTS.md 里的角色划分记录），跟 sql_executor/python_executor
     # 一样全局注册，不限定角色
     tools.append(internal_doc_search)
+    # ODR_LEDGER_BRIEFING=1（默认关）：金属台账周报的确定性数据块，数字由固定 SQL 算出（见 ledger_briefing.py）
+    if os.environ.get("ODR_LEDGER_BRIEFING") == "1":
+        from open_deep_research.ledger_briefing import ledger_briefing
+        tools.append(ledger_briefing)
 
     return tools
 
