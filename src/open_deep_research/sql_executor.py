@@ -176,6 +176,14 @@ def build_sql_executor_description(schema_hint: bool = False, db_path=None) -> s
         "If your query fails, the raw database error will be returned to you -- "
         "read it carefully and correct your next query accordingly."
         + (
+            " Text values in the database may be stored in a different language or spelling than the question "
+            "(e.g. English metal names such as 'aluminium', not Chinese). Before filtering on a text column, run "
+            "SELECT DISTINCT <column> to see the actual values; never conclude 'no data' from an empty result "
+            "without checking this. Do totals and group-by aggregation inside SQL (SUM, COUNT, GROUP BY) "
+            "instead of listing raw rows and adding them up elsewhere."
+            if os.environ.get("ODR_SQL_VALUE_HINT") == "1" else ""
+        )
+        + (
             " Built-in statistical aggregates are available and computed over ALL matching rows inside the "
             "database (do not copy numbers into another tool to compute them): "
             "STDDEV_POP(x), STDDEV_SAMP(x) (alias STDDEV), VAR_POP(x), VAR_SAMP(x), MEDIAN(x); NULLs are ignored."

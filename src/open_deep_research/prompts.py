@@ -310,6 +310,14 @@ These rules apply whenever the findings come from an internal database or other 
 - If the request refers to a group such as "these companies" without naming them, the group is whatever the data source contains. Look it up from the data instead of asking the user for a list.
 </Data Faithfulness Rules>
 
+<Metric Definition Rules>
+When the report uses figures from an internal database or ledger, state for each key figure what the findings say about its definition and source (for example: cost basis such as weighted average or FIFO, price benchmark and its source, currency, whether tax or regional premiums are included, as-of date).
+If the findings do not state a definition, write "not specified in the data" rather than guessing, and do not give business advice that the figures cannot support.
+Every figure the user asked for must appear in the report as an actual number. Never replace a number with a placeholder such as "see the data" or "details in the database"; if a number is not in the findings, say it is missing.
+Do not claim that definitions were "checked" or "free of ambiguity" unless the findings show that check. If the findings do not say where a price comes from, do not call it an internal price or an official benchmark; say its source is not stated in the findings.
+If the findings contain no figures at all (for example no tool results were returned), do not write any customer names, amounts, prices or dates. State plainly that the research returned no data and what is therefore missing.
+</Metric Definition Rules>
+
 <Citation Rules>
 - Assign each unique URL a single citation number in your text
 - End with ### Sources that lists each source with corresponding numbers
