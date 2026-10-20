@@ -195,7 +195,22 @@ def build_sql_executor_description(schema_hint: bool = False, db_path=None) -> s
 
 
 SQL_SCHEMA_HINT_ENABLED = os.environ.get("ODR_SQL_SCHEMA_HINT") == "1"
-SQL_EXECUTOR_DESCRIPTION = build_sql_executor_description(SQL_SCHEMA_HINT_ENABLED)
+
+
+def _metric_dictionary_text() -> str:
+    """ODR_SQL_METRIC_DICT_PATH=<md 文件>（默认不设置=关闭，行为与此前完全一致）：把业务指标字典
+    （buy/sell 方向、as_of 日期、逾期/毛利/库存口径）追加到工具说明。动机见 my_extensions/metals_real_run 的真实运行：
+    模型把采购额算进销售额、拿最新行情月份当“今天”，原因是这些语义不在建表语句里。文件读不到时返回空串。"""
+    path = os.environ.get("ODR_SQL_METRIC_DICT_PATH")
+    if not path:
+        return ""
+    try:
+        return " " + Path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+SQL_EXECUTOR_DESCRIPTION = build_sql_executor_description(SQL_SCHEMA_HINT_ENABLED) + _metric_dictionary_text()
 
 
 # ODR_SQL_ALLOW_WITH=1（默认关）：WITH 开头的查询不再被分类层拒绝，直接交给只读连接执行。
@@ -203,6 +218,10 @@ SQL_EXECUTOR_DESCRIPTION = build_sql_executor_description(SQL_SCHEMA_HINT_ENABLE
 # "WITH … DELETE/INSERT/UPDATE" 会被数据库以 "attempt to write a readonly database" 拒绝（实测见
 # my_extensions/PROTOCOL_sql_benign.md 与 test_sql_allow_with.py）。默认关闭是为了保持与旧行为完全一致。
 SQL_ALLOW_WITH = os.environ.get("ODR_SQL_ALLOW_WITH") == "1"
+
+# ODR_SQL_EMPTY_HINT=1（默认关）：空结果时在返回里提醒“可能是文本字面量与库中存储不一致，先 SELECT DISTINCT 再下结论”。
+# 动机：真实运行中模型把 '客户C' 写成 'Customer C'，空结果被当成“没有逾期”（假阴性）。
+SQL_EMPTY_HINT = os.environ.get("ODR_SQL_EMPTY_HINT") == "1"
 
 
 def _classify_query(query: str) -> str:
@@ -314,11 +333,23 @@ def _run_query_sync(query: str, timeout_seconds: float | None = None) -> str:
             rows = rows[:MAX_ROWS]
 
         if not rows:
+            if SQL_EMPTY_HINT:
+                return (
+                    "Query executed successfully but returned no rows. NOTE: an empty result can also mean that a text or "
+                    "date literal in your WHERE clause does not match how the value is stored (language, spelling, format). "
+                    "Run SELECT DISTINCT on the filtered column(s) and retry before concluding that nothing exists."
+                )
             return "Query executed successfully but returned no rows."
 
         header = " | ".join(columns)
         body = "\n".join(" | ".join(str(v) for v in row) for row in rows)
         result = f"{header}\n{body}"
+        if SQL_EMPTY_HINT and len(rows) == 1 and all(v is None or (isinstance(v, (int, float)) and v == 0) for v in rows[0]):
+            # 聚合查询（COUNT/SUM）在没有匹配行时仍返回一行 0/NULL，不会触发“无结果”分支；同样提醒先核对文本字面量。
+            result += (
+                "\nNOTE: every value in this result is 0 or NULL. If your WHERE clause filters on a text or date literal, check that "
+                "it matches how the value is stored (SELECT DISTINCT on that column) before concluding that the true value is zero."
+            )
         if truncated:
             result += (
                 f"\n... [result truncated at {MAX_ROWS} rows; the query "
